@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manga Translator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a;
+      --text: #e8e4d9; --muted: #666; --accent: #e8c84a;
+      --dialogue-bg: #1e2a1e; --dialogue-border: #3a5a3a; --dialogue-text: #a8d4a8;
+      --narration-bg: #1a1e2a; --narration-border: #3a4a6a; --narration-text: #a8b8d8;
+      --sfx-bg: #2a1e1a; --sfx-border: #6a3a2a; --sfx-text: #d4a888;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+    /* API KEY SCREEN */
+    #keyScreen {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+    }
+    .key-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 36px 40px; width: 420px; text-align: center;
+    }
+    .key-logo { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--accent); letter-spacing: 0.08em; margin-bottom: 6px; }
+    .key-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .key-label { font-size: 12px; color: var(--muted); text-align: left; margin-bottom: 6px; }
+    .key-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 10px 14px; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      margin-bottom: 14px; outline: none;
+    }
+    .key-input:focus { border-color: var(--accent); }
+    .key-btn {
+      width: 100%; background: var(--accent); color: #000; border: none;
+      padding: 10px; border-radius: 6px; font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+    }
+    .key-btn:hover { opacity: 0.85; }
+    .key-note { font-size: 11px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+    .key-note a { color: var(--accent); }
+
+    /* MAIN APP */
+    #app { display: none; flex-direction: column; height: 100vh; }
+
+    .header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 24px; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+    }
+    .header-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: var(--accent); }
+    .header-sub { font-size: 12px; color: var(--muted); }
+    .legend { display: flex; gap: 14px; margin-left: auto; align-items: center; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .d-dot { background: var(--dialogue-text); }
+    .n-dot { background: var(--narration-text); }
+    .s-dot { background: var(--sfx-text); }
+    .reset-key { font-size: 11px; color: var(--muted); cursor: pointer; text-decoration: underline; }
+    .reset-key:hover { color: var(--text); }
+
+    .workspace { display: flex; flex: 1; overflow: hidden; }
+
+    /* LEFT */
+    .image-panel { flex: 1.4; display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+    .image-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0;
+    }
+    .toolbar-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 14px; border-radius: 4px; font-family: 'DM Sans', sans-serif;
+      font-size: 13px; cursor: pointer;
+    }
+    .toolbar-btn:hover { color: var(--text); border-color: var(--muted); }
+    .translate-btn {
+      background: var(--accent); color: #000; border: none;
+      padding: 6px 20px; border-radius: 4px; font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 500; cursor: pointer; margin-left: auto;
+    }
+    .translate-btn:hover { opacity: 0.85; }
+    .translate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .image-area {
+      flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .drop-zone-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; border: 1.5px dashed var(--border); border-radius: 10px;
+      width: 100%; height: 100%; min-height: 300px; cursor: pointer;
+      transition: border-color 0.2s; text-align: center; padding: 40px;
+    }
+    .drop-zone-empty:hover, .drop-zone-empty.drag { border-color: var(--accent); }
+    .drop-icon { font-size: 40px; color: var(--muted); }
+    .drop-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.06em; color: var(--muted); }
+    .drop-sub { font-size: 13px; color: var(--muted); }
+    .pick-btn {
+      background: transparent; border: 1px solid var(--accent); color: var(--accent);
+      padding: 8px 22px; border-radius: 4px; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
+    }
+    .pick-btn:hover { background: rgba(232,200,74,0.08); }
+    #previewImg { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; display: none; }
+
+    /* RIGHT */
+    .translation-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .panel-header {
+      padding: 12px 18px; border-bottom: 1px solid var(--border);
+      font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+      background: var(--surface); flex-shrink: 0;
+    }
+    .entries-wrap { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+    .status { padding: 30px 20px; font-size: 13px; color: var(--muted); text-align: center; line-height: 1.7; }
+    .status.loading { color: var(--accent); }
+    .status.error { color: #d47878; }
+
+    .entry { border-radius: 6px; padding: 10px 13px; border-left: 3px solid; }
+    .entry.dialogue { background: var(--dialogue-bg); border-left-color: var(--dialogue-border); }
+    .entry.narration { background: var(--narration-bg); border-left-color: var(--narration-border); }
+    .entry.sfx      { background: var(--sfx-bg);      border-left-color: var(--sfx-border); }
+
+    .entry-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; font-weight: 500; }
+    .dialogue .entry-label { color: var(--dialogue-text); opacity: 0.7; }
+    .narration .entry-label { color: var(--narration-text); opacity: 0.7; }
+    .sfx .entry-label      { color: var(--sfx-text); opacity: 0.7; }
+
+    .entry-text { font-size: 14px; line-height: 1.55; }
+    .dialogue .entry-text { color: var(--dialogue-text); }
+    .narration .entry-text { color: var(--narration-text); }
+    .sfx .entry-text      { color: var(--sfx-text); font-style: italic; }
+
+    .entry-jp { font-size: 11px; margin-top: 3px; opacity: 0.4; }
+    .dialogue .entry-jp { color: var(--dialogue-text); }
+    .narration .entry-jp { color: var(--narration-text); }
+    .sfx .entry-jp      { color: var(--sfx-text); }
+
+    .num-badge {
+      display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+      text-align: center; line-height: 18px; font-size: 10px; font-weight: 500;
+      margin-right: 6px; background: rgba(255,255,255,0.07); color: var(--muted); vertical-align: middle;
+    }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(232,200,74,0.25); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- API KEY SCREEN -->
+<div id="keyScreen">
+  <div class="key-box">
+    <div class="key-logo">Manga Translator</div>
+    <div class="key-sub">JP → EN · powered by Google Gemini</div>
+    <div class="key-label">Gemini API Key</div>
+    <input type="password" class="key-input" id="keyInput" placeholder="AIza..." />
+    <button class="key-btn" onclick="saveKey()">Start</button>
+    <div class="key-note">
+      La key viene salvata solo nel tuo browser.<br>
+      Ottienila gratis su <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="header">
+    <span class="header-title">Manga Translator</span>
+    <span class="header-sub">JP → EN</span>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot d-dot"></div> Dialogue</div>
+      <div class="legend-item"><div class="legend-dot n-dot"></div> Narration</div>
+      <div class="legend-item"><div class="legend-dot s-dot"></div> SFX</div>
+    </div>
+    <span class="reset-key" style="margin-left:16px;" onclick="resetKey()">Change API key</span>
+  </div>
+
+  <div class="workspace">
+    <!-- LEFT -->
+    <div class="image-panel">
+      <div class="image-toolbar">
+        <button class="toolbar-btn" onclick="document.getElementById('fileInput').click()">Open image</button>
+        <button class="translate-btn" id="translateBtn" disabled onclick="translatePage()">Translate</button>
+      </div>
+      <div class="image-area" id="imageArea">
+        <div class="drop-zone-empty" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <div class="drop-icon">⊞</div>
+          <div class="drop-title">Drop manga page here</div>
+          <div class="drop-sub">JPG · PNG · WEBP</div>
+          <button class="pick-btn" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">Browse file</button>
+        </div>
+        <img id="previewImg" alt="manga page" />
+      </div>
+      <input type="file" id="fileInput" accept="image/*" />
+    </div>
+
+    <!-- RIGHT -->
+    <div class="translation-panel">
+      <div class="panel-header">Translation</div>
+      <div class="entries-wrap" id="entriesWrap">
+        <div class="status" id="statusMsg">Load a manga page and press Translate.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let imageBase64 = null;
+  let imageMime = 'image/jpeg';
+  let apiKey = localStorage.getItem('gemini_key') || '';
+
+  const keyScreen  = document.getElementById('keyScreen');
+  const appDiv     = document.getElementById('app');
+  const keyInput   = document.getElementById('keyInput');
+  const fileInput  = document.getElementById('fileInput');
+  const dropZone   = document.getElementById('dropZone');
+  const previewImg = document.getElementById('previewImg');
+  const translateBtn = document.getElementById('translateBtn');
+  const entriesWrap  = document.getElementById('entriesWrap');
+  const statusMsg    = document.getElementById('statusMsg');
+
+  // Init
+  if (apiKey) showApp();
+
+  keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
+
+  function saveKey() {
+    const k = keyInput.value.trim();
+    if (!k) return;
+    apiKey = k;
+    localStorage.setItem('gemini_key', k);
+    showApp();
+  }
+
+  function showApp() {
+    keyScreen.style.display = 'none';
+    appDiv.style.display = 'flex';
+  }
+
+  function resetKey() {
+    localStorage.removeItem('gemini_key');
+    apiKey = '';
+    keyInput.value = '';
+    appDiv.style.display = 'none';
+    keyScreen.style.display = 'flex';
+  }
+
+  // File handling
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) loadFile(f);
+  });
+  document.getElementById('imageArea').addEventListener('dragover', e => e.preventDefault());
+  document.getElementById('imageArea').addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('image/')) loadFile(f);
+  });
+
+  function loadFile(file) {
+    imageMime = file.type || 'image/jpeg';
+    const reader = new FileReader();
+    reader.onload = ev => {
+      imageBase64 = ev.target.result.split(',')[1];
+      previewImg.src = ev.target.result;
+      previewImg.style.display = 'block';
+      dropZone.style.display = 'none';
+      translateBtn.disabled = false;
+      setStatus('Image loaded. Press Translate.', '');
+      entriesWrap.innerHTML = '';
+      entriesWrap.appendChild(statusMsg);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function setStatus(msg, cls) {
+    statusMsg.innerHTML = msg;
+    statusMsg.className = 'status ' + cls;
+    statusMsg.style.display = 'block';
+  }
+
+  async function translatePage() {
+    if (!imageBase64 || !apiKey) return;
+    translateBtn.disabled = true;
+    entriesWrap.innerHTML = '';
+    entriesWrap.appendChild(statusMsg);
+    setStatus('<span class="spinner"></span>Translating...', 'loading');
+
+    const prompt = `You are a professional manga translator. Analyze this manga page carefully.
+Extract ALL text: speech bubbles, thought bubbles, narration boxes, sound effects.
+Read in proper manga order (right to left, top to bottom).
+Respond ONLY with a raw JSON array, no markdown, no backticks, no explanation.
+Each item must have:
+- "type": one of "dialogue", "narration", "sfx"
+- "jp": original Japanese text
+- "en": English translation`;
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: imageMime, data: imageBase64 } },
+                { text: prompt }
+              ]
+            }],
+            generationConfig: { temperature: 0.1 }
+          })
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const msg = data.error?.message || 'API error';
+        throw new Error(msg);
+      }
+
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const clean = raw.replace(/```json|```/g, '').trim();
+      const start = clean.indexOf('[');
+      const end   = clean.lastIndexOf(']');
+      if (start === -1) throw new Error('No JSON found in response.');
+      const items = JSON.parse(clean.slice(start, end + 1));
+
+      statusMsg.style.display = 'none';
+      items.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'entry ' + (item.type || 'dialogue');
+        div.innerHTML = `
+          <div class="entry-label"><span class="num-badge">${i + 1}</span>${item.type}</div>
+          <div class="entry-text">${item.en}</div>
+          <div class="entry-jp">${item.jp}</div>
+        `;
+        entriesWrap.appendChild(div);
+      });
+
+    } catch (err) {
+      setStatus('Errore: ' + err.message, 'error');
+    }
+
+    translateBtn.disabled = false;
+  }
+</script>
+</body>
+</html>
